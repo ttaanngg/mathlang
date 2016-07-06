@@ -13,6 +13,3 @@ should only be of type (-> Number Number).
 algorithm. Because our language is not polymorphic, it only
 contains types for numbers and booleans. Extend it such that all
 the new functions you have added can be type checked.
-
-For extra points, you can also implement polymorphic functions and
-then implement Hindley-Milner type inference for them.
