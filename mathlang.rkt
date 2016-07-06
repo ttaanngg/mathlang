@@ -3,7 +3,7 @@
 ;; The general expression type. An expression is either a variable
 ;; name like "x", a constant like 5 or a let-binding like "(let (x 5)
 ;; x)".
-(define-type Expr (U Var Const Let Arith Cond));;表达式类型
+(define-type Expr (U Var Const Let Arith));;表达式类型
 (struct Const ([n : Number]) #:transparent);;数字常量
 (struct Var   ([v : String]) #:transparent);;变量
 (struct Let   ([v : Var] [e1 : Expr] [e2 : Expr]) #:transparent);;变量绑定
@@ -20,7 +20,6 @@
 (struct Gt    ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Eq    ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Cond  ([b  : Expr] [e1 : Expr] [e2 : Expr]) #:transparent)
-(struct Lambda([e1 : Expr] [e2 : Expr]) #:transparent)
 
 
 ;; This is a simple parser that produces an expression tree from a
@@ -30,6 +29,7 @@
   (match expr
     [(? number?)      (Const expr)]
     [(? symbol?)      (Var (symbol->string expr))]
+    [`(let (,f (lambda (,v) ,e1)) (,f ,e2)) (Let (Var (format "~a" v)) (parse e2) (parse e1))]
     [`(let (,v ,e1) ,e2) (Let (Var (format "~a" v)) (parse e1) (parse e2))]
     [`(+ ,e1 ,e2)       (Plus  (parse e1) (parse e2))]
     [`(- ,e1 ,e2)       (Minus (parse e1) (parse e2))]
@@ -40,7 +40,7 @@
     [`(> ,e1 ,e2)       (Gt  (parse e1) (parse e2))]
     [`(= ,e1 ,e2)       (Eq  (parse e1) (parse e2))]
     [`(if ,b ,e1 ,e2)   (Cond  (parse b)  (parse e1) (parse e2))]
-    [`(lambda (,e1) ,e2)(Lambda e1 e2)]
+    [`((lambda (,v) ,e1) ,x) (Let (Var (format "~a" v)) (parse x) (parse e1))]
     [_ (error (format "Invalid syntax: \"~a\"" expr))]))
 
 ;; Now, we want to implement an interpreter for this
@@ -74,10 +74,7 @@
     [(Var v)       (env-load v env)]
     [(Let (Var v) e1 e2)
                    ;; Evaluate e1, store it under v and evaluate e2.
-                   (cond
-                     [(procedure? e1) ()]
-                     [else (eval e2 (env-store v (eval e1 env) env))])]
-    [(Lambda e1 e2)(lambda (e1) (e2))]
+                   (eval e2 (env-store v (eval e1 env) env))]
     [(Plus  e1 e2) (+ (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
     [(Minus e1 e2) (- (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
     [(Times e1 e2) (* (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
@@ -108,6 +105,12 @@
 (eval (parse '(if (< 1 2) 1 2)) '())
 (eval (parse '(let (x 3) (let (y 2) (if (= x 0) y (/ y x))))) '())
 
+;; 5
+(eval (parse '((lambda (x) x) 2)) '())
+(eval (parse '((lambda (x) (+ x 3)) 2)) '())
+(eval (parse '((lambda (x) (* x 2)) 2)) '())
+(eval (parse '(let (f (lambda (x) x)) (f 1))) '())
+(eval (parse '(let (f (lambda (x) (* 2 x))) (f 2))) '())
 
 ;; The type that describes types in our language.
 (define-type MathType (U 'Number 'Bool))
@@ -137,4 +140,29 @@
                            (eq? 'Number (type e2 tenv))) ;; Check whether e2 has the right type.
                       'Number ;; If both have the right type, the result type is 'Number.
                       (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
+    [(Neg e1) (if (eq? 'Number (type e1 tenv))  ;; Check whether e1 has the right type.
+                      'Number  
+                      (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
+    [(Lt e1 e2) (if (and (eq? 'Number (type e1 tenv))  ;; Check whether e1 has the right type.
+                           (eq? 'Number (type e2 tenv))) ;; Check whether e2 has the right type.
+                      'Bool;; If both have the right type, the result type is 'Number.
+                      (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
+    [(Gt e1 e2) (if (and (eq? 'Number (type e1 tenv))  ;; Check whether e1 has the right type.
+                           (eq? 'Number (type e2 tenv))) ;; Check whether e2 has the right type.
+                      'Bool;; If both have the right type, the result type is 'Number.
+                      (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
+    [(Eq e1 e2) (if (and (eq? 'Number (type e1 tenv))  ;; Check whether e1 has the right type.
+                           (eq? 'Number (type e2 tenv))) ;; Check whether e2 has the right type.
+                      'Bool;; If both have the right type, the result type is 'Number.
+                      (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
+    [(Cond b e1 e2) (if (and (eq? 'Bool (type b tenv))  ;; Check whether b has the right type.
+                           (eq? (type e1 tenv) (type e2 tenv))) ;; Check whether e1 and e2 has the right type.
+                        (type e1 tenv)
+                      (error "Wrong type arguments for / operator!"))] ;; Error otherwise.
     [_ (error "Not implemented yet!")]))
+
+;; 6
+(type (parse '(let (x 2) (+ x x))) '())
+(type (parse '(neg 3)) '())
+(type (parse '(< 3 5)) '())
+(type (parse '(let (x 0) (if (= x 0) 1 x))) '())

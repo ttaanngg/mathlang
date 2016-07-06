@@ -9,7 +9,7 @@ Bool. We need = < and > operators. Make sure to change the type of Env to (U Num
 - [x] What would it take to add lambda expressions and application to
 the language? Can you implement it? Give it a try! All lambdas
 should only be of type (-> Number Number).
-- [ ] This is the definition of a very simple and tiny type inference
+- [x] This is the definition of a very simple and tiny type inference
 algorithm. Because our language is not polymorphic, it only
 contains types for numbers and booleans. Extend it such that all
 the new functions you have added can be type checked.
