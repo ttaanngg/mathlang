@@ -10,7 +10,7 @@
 
 ;; An arithmetic expression is the application of a mathematical
 ;; operator to its argument expressions.
-(define-type Arith (U Plus Minus Times Div Lt Gt Neg Cond Eq));;运算符类型
+(define-type Arith (U Plus Minus Times Div Neg Lt Gt Eq Cond));;运算符类型
 (struct Plus  ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Minus ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Times ([e1 : Expr] [e2 : Expr]) #:transparent)
@@ -20,15 +20,11 @@
 (struct Gt    ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Eq    ([e1 : Expr] [e2 : Expr]) #:transparent)
 (struct Cond  ([b  : Expr] [e1 : Expr] [e2 : Expr]) #:transparent)
+(struct Lambda([e1 : Expr] [e2 : Expr]) #:transparent)
+
 
 ;; This is a simple parser that produces an expression tree from a
 ;; tiny math language. It is very much like Racket.
-;; 解析器
-;; Some valid syntax examples:
-;; x
-;; (+ 1 2)
-;; (let (x 5) (+ x x))
-;; (let (y 5) (let x y) (+ x x))
 (: parse (-> Any Expr))
 (define (parse expr)
   (match expr
@@ -44,6 +40,7 @@
     [`(> ,e1 ,e2)       (Gt  (parse e1) (parse e2))]
     [`(= ,e1 ,e2)       (Eq  (parse e1) (parse e2))]
     [`(if ,b ,e1 ,e2)   (Cond  (parse b)  (parse e1) (parse e2))]
+    [`(lambda (,e1) ,e2)(Lambda e1 e2)]
     [_ (error (format "Invalid syntax: \"~a\"" expr))]))
 
 ;; Now, we want to implement an interpreter for this
@@ -77,7 +74,10 @@
     [(Var v)       (env-load v env)]
     [(Let (Var v) e1 e2)
                    ;; Evaluate e1, store it under v and evaluate e2.
-                   (eval e2 (env-store v (eval e1 env) env))]
+                   (cond
+                     [(procedure? e1) ()]
+                     [else (eval e2 (env-store v (eval e1 env) env))])]
+    [(Lambda e1 e2)(lambda (e1) (e2))]
     [(Plus  e1 e2) (+ (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
     [(Minus e1 e2) (- (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
     [(Times e1 e2) (* (cast (eval e1 env) Real) (cast (eval e2 env) Real))]
@@ -92,16 +92,12 @@
 
 ;;
 ;; Some test expressions:
-;; 0)
-(eval (parse '(let (x (* 2 5)) (/ x x))) '())
+
 ;; 1)
 (eval (parse '(* 2 5)) '())
-(eval (parse '(/ 5 2)) '())
 (eval (parse '(let (x (* 2 5)) (/ x x))) '())
-
 ;; 2)
 (eval (parse '(neg 3)) '())
-(eval (parse '(neg (neg (neg (neg 3))))) '())
 (eval (parse '(let (x 4) (neg x))) '())
 
 ;; 3
